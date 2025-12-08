@@ -261,13 +261,16 @@ Examples: specific race, building fitness, comeback from injury, staying active`
               await loadUserData(user.uid);
               
               if (newActivities.length > 0) {
-                const newMsg = {
+                const syncMsg = {
                   role: 'assistant',
-                  content: `✅ Synced ${newActivities.length} activities from Strava!`,
+                  content: `✅ Synced ${newActivities.length} activities from Strava! Let me analyze your training...`,
                   timestamp: Date.now()
                 };
-                setMessages(prev => [...prev, newMsg]);
-                await saveMessage(user.uid, newMsg);
+                setMessages(prev => [...prev, syncMsg]);
+                await saveMessage(user.uid, syncMsg);
+                
+                // Trigger automatic analysis
+                await analyzeActivities(newActivities);
               }
             } catch (error) {
               console.error('Sync error:', error);
@@ -283,6 +286,60 @@ Examples: specific race, building fitness, comeback from injury, staying active`
             } catch (error) {
               console.error('Error saving message:', error);
             }
+          };
+
+          const analyzeActivities = async (activitiesData) => {
+            setLoading(true);
+            
+            try {
+              const activitySummary = activitiesData.map(a => ({
+                name: a.name,
+                distance_km: a.distance,
+                pace_per_km: a.pace,
+                avg_hr: a.avgHeartrate,
+                max_hr: a.maxHeartrate,
+                cadence: a.cadence,
+                date: new Date(a.date).toLocaleDateString()
+              }));
+
+              const analysisPrompt = `You are Logue, an expert running coach. I've just synced ${activitiesData.length} activities from Strava. 
+
+Here's the data:
+${JSON.stringify(activitySummary, null, 2)}
+
+Your task:
+1. Analyze this training data and give a 2-3 sentence summary of what you observe (frequency, pace patterns, heart rate trends, etc.)
+2. Then ask: "What are you training for?" and give examples like: specific race, building fitness, comeback from injury, staying active
+
+Be conversational, specific about the numbers you see, and show you've actually analyzed their data.`;
+
+              const response = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: "claude-sonnet-4-20250514",
+                  max_tokens: 1000,
+                  messages: [{ role: 'user', content: analysisPrompt }]
+                })
+              });
+
+              const data = await response.json();
+              const reply = data.content.find(c => c.type === 'text')?.text || 'Error analyzing activities.';
+              
+              const analysisMessage = {
+                role: 'assistant',
+                content: reply,
+                timestamp: Date.now()
+              };
+              
+              setMessages(prev => [...prev, analysisMessage]);
+              await saveMessage(user.uid, analysisMessage);
+              
+            } catch (error) {
+              console.error('Analysis error:', error);
+            }
+            
+            setLoading(false);
           };
 
           const sendMessage = async () => {
