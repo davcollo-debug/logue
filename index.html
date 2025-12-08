@@ -235,15 +235,29 @@ Examples: specific race, building fitness, comeback from injury, staying active`
               
               if (!userData?.stravaToken) throw new Error('No Strava token');
               
+              // Fetch from our simplified backend
               const response = await fetch(`${API_BASE}/api/strava-sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.uid, token: userData.stravaToken })
+                body: JSON.stringify({ token: userData.stravaToken })
               });
               
               if (!response.ok) throw new Error('Sync failed');
               
               const { activities: newActivities } = await response.json();
+              
+              // Save to Firestore from frontend
+              const activitiesRef = db.collection('users').doc(user.uid).collection('activities');
+              
+              for (const activity of newActivities) {
+                await activitiesRef.doc(activity.stravaId.toString()).set(activity);
+              }
+              
+              // Update last sync time
+              await db.collection('users').doc(user.uid).update({ 
+                lastSync: new Date().toISOString() 
+              });
+              
               await loadUserData(user.uid);
               
               if (newActivities.length > 0) {
