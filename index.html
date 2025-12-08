@@ -8,6 +8,11 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div id="root"></div>
@@ -28,6 +33,13 @@
         // Strava Configuration
         const STRAVA_CLIENT_ID = "184757";
         const API_BASE = "https://logue.vercel.app";
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+        }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
         // Lucide Icons as SVG components
         const Activity = (props) => (
@@ -67,8 +79,6 @@
         );
 
         const Logue = () => {
-          const [firebaseAuth, setFirebaseAuth] = useState(null);
-          const [firebaseDb, setFirebaseDb] = useState(null);
           const [user, setUser] = useState(null);
           const [loadingAuth, setLoadingAuth] = useState(true);
           const [stravaConnected, setStravaConnected] = useState(false);
@@ -80,12 +90,7 @@
           const messagesEndRef = useRef(null);
 
           useEffect(() => {
-            initializeFirebase();
-          }, []);
-
-          useEffect(() => {
-            if (!firebaseAuth) return;
-            const unsubscribe = firebaseAuth.onAuthStateChanged(async (fbUser) => {
+            const unsubscribe = auth.onAuthStateChanged(async (fbUser) => {
               if (fbUser) {
                 setUser(fbUser);
                 await loadUserData(fbUser.uid);
@@ -95,39 +100,20 @@
               setLoadingAuth(false);
             });
             return () => unsubscribe();
-          }, [firebaseAuth]);
+          }, []);
 
           useEffect(() => {
             handleStravaCallback();
-          }, [user, firebaseDb]);
+          }, [user]);
 
           useEffect(() => {
             scrollToBottom();
           }, [messages]);
 
-          const initializeFirebase = async () => {
-            try {
-              const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-              const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-              const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-              
-              const app = initializeApp(FIREBASE_CONFIG);
-              const auth = getAuth(app);
-              const db = getFirestore(app);
-              
-              setFirebaseAuth(auth);
-              setFirebaseDb(db);
-            } catch (error) {
-              console.error('Firebase error:', error);
-              setLoadingAuth(false);
-            }
-          };
-
           const signInWithGoogle = async () => {
             try {
-              const { signInWithPopup, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-              const provider = new GoogleAuthProvider();
-              await signInWithPopup(firebaseAuth, provider);
+              const provider = new firebase.auth.GoogleAuthProvider();
+              await auth.signInWithPopup(provider);
             } catch (error) {
               console.error('Sign in error:', error);
               alert('Sign in failed: ' + error.message);
@@ -136,8 +122,7 @@
 
           const signOut = async () => {
             try {
-              const { signOut: fbSignOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-              await fbSignOut(firebaseAuth);
+              await auth.signOut();
               setStravaConnected(false);
               setActivities([]);
               setMessages([]);
@@ -148,26 +133,20 @@
 
           const loadUserData = async (userId) => {
             try {
-              const { doc, getDoc, collection, query, orderBy, limit, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-              
-              const userDoc = await getDoc(doc(firebaseDb, 'users', userId));
-              if (userDoc.exists() && userDoc.data().stravaToken) {
+              const userDoc = await db.collection('users').doc(userId).get();
+              if (userDoc.exists && userDoc.data().stravaToken) {
                 setStravaConnected(true);
                 
-                const activitiesQuery = query(
-                  collection(firebaseDb, 'users', userId, 'activities'),
-                  orderBy('date', 'desc'),
-                  limit(10)
-                );
-                const activitiesSnap = await getDocs(activitiesQuery);
+                const activitiesSnap = await db.collection('users').doc(userId).collection('activities')
+                  .orderBy('date', 'desc')
+                  .limit(10)
+                  .get();
                 const acts = activitiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setActivities(acts);
                 
-                const messagesQuery = query(
-                  collection(firebaseDb, 'users', userId, 'messages'),
-                  orderBy('timestamp', 'asc')
-                );
-                const messagesSnap = await getDocs(messagesQuery);
+                const messagesSnap = await db.collection('users').doc(userId).collection('messages')
+                  .orderBy('timestamp', 'asc')
+                  .get();
                 const msgs = messagesSnap.docs.map(doc => doc.data());
                 
                 if (msgs.length === 0) {
@@ -203,7 +182,7 @@ Examples: specific race, building fitness, comeback from injury, staying active`
           };
 
           const handleStravaCallback = async () => {
-            if (!user || !firebaseDb) return;
+            if (!user) return;
             
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
@@ -223,8 +202,7 @@ Examples: specific race, building fitness, comeback from injury, staying active`
                 
                 const data = await response.json();
                 
-                const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-                await setDoc(doc(firebaseDb, 'users', user.uid), {
+                await db.collection('users').doc(user.uid).set({
                   stravaToken: data.access_token,
                   stravaRefreshToken: data.refresh_token,
                   stravaExpiresAt: data.expires_at,
@@ -247,13 +225,12 @@ Examples: specific race, building fitness, comeback from injury, staying active`
           };
 
           const syncActivities = async () => {
-            if (!user || !firebaseDb) return;
+            if (!user) return;
             
             setSyncing(true);
             
             try {
-              const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-              const userDoc = await getDoc(doc(firebaseDb, 'users', user.uid));
+              const userDoc = await db.collection('users').doc(user.uid).get();
               const userData = userDoc.data();
               
               if (!userData?.stravaToken) throw new Error('No Strava token');
@@ -288,8 +265,7 @@ Examples: specific race, building fitness, comeback from injury, staying active`
 
           const saveMessage = async (userId, message) => {
             try {
-              const { collection, addDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-              await addDoc(collection(firebaseDb, 'users', userId, 'messages'), message);
+              await db.collection('users').doc(userId).collection('messages').add(message);
             } catch (error) {
               console.error('Error saving message:', error);
             }
