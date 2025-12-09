@@ -242,26 +242,45 @@
             setChatLoading(true);
             
             try {
-              const activitySummary = activitiesData.map(a => ({
-                name: a.name,
-                distance_km: a.distance,
-                pace_per_km: a.pace,
-                avg_hr: a.avgHeartrate,
-                max_hr: a.maxHeartrate,
-                cadence: a.cadence,
-                date: new Date(a.date).toLocaleDateString()
-              }));
+              // Prepare detailed activity summaries including analysis
+              const detailedSummaries = activitiesData.map(a => {
+                const summary = {
+                  name: a.name,
+                  date: new Date(a.date).toLocaleDateString(),
+                  distance_km: a.distance,
+                  pace: a.pace,
+                  avg_hr: a.avgHeartrate,
+                  max_hr: a.maxHeartrate,
+                  cadence: a.cadence
+                };
+                
+                // Add detailed analysis if available
+                if (a.detailedAnalysis) {
+                  summary.insights = a.detailedAnalysis;
+                }
+                
+                return summary;
+              });
 
-              const analysisPrompt = `You are Logue, an expert running coach. I've just synced ${activitiesData.length} activities from Strava. 
+              const analysisPrompt = `You are Logue, an expert running coach with deep physiological knowledge. I've just synced ${activitiesData.length} activities with detailed stream data from Strava.
 
-Here's the data:
-${JSON.stringify(activitySummary, null, 2)}
+DETAILED ACTIVITY DATA:
+${JSON.stringify(detailedSummaries, null, 2)}
 
-Your task:
-1. Analyze this training data and give a 2-3 sentence summary of what you observe (frequency, pace patterns, heart rate trends, etc.)
-2. Then ask: "What are you training for?" and give examples like: specific race, building fitness, comeback from injury, staying active
+ANALYSIS FRAMEWORK:
+- HR Drift: >5% indicates poor aerobic efficiency or overtraining
+- Positive splits (slowing down): often means started too fast
+- Cadence drops >5 spm: form breakdown from fatigue
+- High variability: inconsistent pacing strategy
+- HR zones: too much time in Z4/Z5 suggests intensity issues
 
-Be conversational, specific about the numbers you see, and show you've actually analyzed their data.`;
+YOUR TASK:
+1. Deeply analyze the data - look for patterns across multiple runs
+2. Point out 2-3 specific insights they likely didn't notice themselves (e.g., "Your HR drifted 8% on your tempo run but only 3% on your easy run - suggests you're running your tempos too hard")
+3. If you see concerning patterns, flag them directly (e.g., "Your cadence is dropping 10+ spm in every run - classic overstriding fatigue")
+4. Then ask: "What are you training for?" with examples
+
+Be direct, insightful, and reference specific numbers from their runs. Show you're analyzing at a level they can't see themselves.`;
 
               const response = await fetch(`${API_BASE}/api/claude-chat`, {
                 method: "POST",
