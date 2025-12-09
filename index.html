@@ -205,9 +205,9 @@
                 await activitiesRef.doc(activity.stravaId.toString()).set(activity);
               }
               
-              await db.collection('users').doc(userData.athleteId).update({ 
+              await db.collection('users').doc(userData.athleteId).set({ 
                 lastSync: new Date().toISOString() 
-              });
+              }, { merge: true });
               
               await loadUserData(userData.athleteId);
               
