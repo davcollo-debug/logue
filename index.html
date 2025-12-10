@@ -8,8 +8,6 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Firebase SDKs (for Firestore only, no auth) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
@@ -19,7 +17,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Firebase Configuration (Firestore only)
         const FIREBASE_CONFIG = {
           apiKey: "AIzaSyCNDL5acClE7hbR2xshZtgrzSiJk7jq1Ko",
           authDomain: "logue-coach-app.firebaseapp.com",
@@ -29,537 +26,187 @@
           appId: "1:513654365822:web:84835e52ba217cd255422f"
         };
 
-        // Strava Configuration
         const STRAVA_CLIENT_ID = "184757";
         const API_BASE = "https://logue.vercel.app";
 
-        // Initialize Firebase (Firestore only)
         if (!firebase.apps.length) {
           firebase.initializeApp(FIREBASE_CONFIG);
         }
         const db = firebase.firestore();
 
-        // Icons
-        const Activity = (props) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
-          </svg>
-        );
+        // Simple icon components
+        const Activity = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>;
+        const Send = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>;
+        const RefreshCw = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>;
 
-        const Send = (props) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>
-          </svg>
-        );
-
-        const Heart = (props) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-          </svg>
-        );
-
-        const Zap = (props) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
-          </svg>
-        );
-
-        const RefreshCw = (props) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/>
-          </svg>
-        );
-
-        const LogOut = (props) => (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
-          </svg>
-        );
-
-        const Logue = () => {
+        function App() {
           const [user, setUser] = useState(null);
           const [loading, setLoading] = useState(true);
-          const [onboardingPhase, setOnboardingPhase] = useState('initial'); // 'initial', 'goal_intake', 'complete'
-          const [goalData, setGoalData] = useState(null);
-          const [activities, setActivities] = useState([]);
+          const [phase, setPhase] = useState('connect'); // 'connect', 'goal_intake', 'main'
           const [messages, setMessages] = useState([]);
-          const [userInput, setUserInput] = useState('');
+          const [input, setInput] = useState('');
           const [chatLoading, setChatLoading] = useState(false);
-          const [syncing, setSyncing] = useState(false);
           const messagesEndRef = useRef(null);
 
           useEffect(() => {
-            // Check if user is stored in localStorage
             const storedUser = localStorage.getItem('logue_user');
             const storedGoal = localStorage.getItem('logue_goal');
             
             if (storedUser) {
-              const userData = JSON.parse(storedUser);
-              setUser(userData);
-              
+              setUser(JSON.parse(storedUser));
               if (storedGoal) {
-                setGoalData(JSON.parse(storedGoal));
-                setOnboardingPhase('complete');
-                loadUserData(userData.athleteId);
+                setPhase('main');
               } else {
-                // Has Strava but no goal - start goal intake
-                setOnboardingPhase('goal_intake');
-                startGoalIntake();
+                setPhase('goal_intake');
+                setMessages([{
+                  role: 'assistant',
+                  content: "Hi! I'm Logue, your AI running coach. What are you training for?",
+                  timestamp: Date.now()
+                }]);
               }
-            } else {
-              // No user - show connect screen
-              setOnboardingPhase('initial');
             }
-            
-            handleStravaCallback();
             setLoading(false);
           }, []);
 
           useEffect(() => {
-            scrollToBottom();
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
           }, [messages]);
 
           const connectStrava = () => {
-            const redirectUri = window.location.origin;
             const state = Math.random().toString(36).substring(7);
             localStorage.setItem('strava_state', state);
-            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=read,activity:read_all&state=${state}`;
+            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${window.location.origin}&response_type=code&scope=read,activity:read_all&state=${state}`;
             window.location.href = authUrl;
           };
 
-          const handleStravaCallback = async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            const state = urlParams.get('state');
-            const storedState = localStorage.getItem('strava_state');
-            
-            if (code && state === storedState) {
-              try {
-                setSyncing(true);
-                
-                const response = await fetch(`${API_BASE}/api/strava-token`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code })
-                });
-                
-                if (!response.ok) throw new Error('Token exchange failed');
-                
-                const data = await response.json();
-                
-                const userData = {
-                  athleteId: data.athlete.id.toString(),
-                  name: `${data.athlete.firstname} ${data.athlete.lastname}`,
-                  stravaToken: data.access_token,
-                  stravaRefreshToken: data.refresh_token,
-                  stravaExpiresAt: data.expires_at
-                };
-                
-                // Store user in localStorage
-                localStorage.setItem('logue_user', JSON.stringify(userData));
-                setUser(userData);
-                
-                // Save to Firestore
-                await db.collection('users').doc(userData.athleteId).set({
-                  name: userData.name,
-                  stravaToken: userData.stravaToken,
-                  stravaRefreshToken: userData.stravaRefreshToken,
-                  stravaExpiresAt: userData.stravaExpiresAt,
-                  lastSync: null
-                }, { merge: true });
-                
-                // Start goal intake flow
-                setOnboardingPhase('goal_intake');
-                startGoalIntake();
-                
-                window.history.replaceState({}, document.title, window.location.pathname);
-                localStorage.removeItem('strava_state');
-                setSyncing(false);
-              } catch (error) {
-                console.error('Strava auth error:', error);
-                alert('Failed to connect to Strava: ' + error.message);
-                setSyncing(false);
-              }
-            }
-          };
-
-          const startGoalIntake = async () => {
-            const welcomeMessage = {
-              role: 'assistant',
-              content: "Hi! I'm Logue, your AI running coach. What are you training for?",
-              timestamp: Date.now()
-            };
-            setMessages([welcomeMessage]);
-          };
-
-          const handleGoalIntakeMessage = async () => {
-            if (!userInput.trim() || chatLoading) return;
-
-            const newUserMessage = { 
-              role: 'user', 
-              content: userInput,
-              timestamp: Date.now()
-            };
-            
-            setMessages(prev => [...prev, newUserMessage]);
-            setUserInput('');
-            setChatLoading(true);
-
-            try {
-              const conversationHistory = messages.map(m => ({
-                role: m.role,
-                content: m.content
-              }));
-
-              const response = await fetch(`${API_BASE}/api/goal-intake`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  messages: [...conversationHistory, { role: 'user', content: newUserMessage.content }],
-                  goalData: goalData
-                })
-              });
-
-              const data = await response.json();
+          useEffect(() => {
+            const handleCallback = async () => {
+              const urlParams = new URLSearchParams(window.location.search);
+              const code = urlParams.get('code');
+              const state = urlParams.get('state');
               
-              const assistantMessage = {
-                role: 'assistant',
-                content: data.reply,
-                timestamp: Date.now()
-              };
-              
-              setMessages(prev => [...prev, assistantMessage]);
-              
-              if (data.isComplete && data.goalData) {
-                // Goal intake complete!
-                setGoalData(data.goalData);
-                localStorage.setItem('logue_goal', JSON.stringify(data.goalData));
-                setOnboardingPhase('complete');
-                
-                // Now trigger initial plan generation
-                await generateInitialPlan(data.goalData);
-              }
-              
-            } catch (error) {
-              console.error('Goal intake error:', error);
-            }
-
-            setChatLoading(false);
-          };
-
-          const generateInitialPlan = async (goal) => {
-            setChatLoading(true);
-            
-            try {
-              // This will be the plan generation logic
-              const planMessage = {
-                role: 'assistant',
-                content: `Great! Let me create your training plan for ${goal.goalType} on ${new Date(goal.targetDate).toLocaleDateString()}...`,
-                timestamp: Date.now()
-              };
-              
-              setMessages(prev => [...prev, planMessage]);
-              
-              // TODO: Call plan generation API here
-              // For now, just sync activities
-              await syncActivities(user);
-              
-            } catch (error) {
-              console.error('Plan generation error:', error);
-            }
-            
-            setChatLoading(false);
-          };
-            try {
-              const activitiesSnap = await db.collection('users').doc(athleteId).collection('activities')
-                .orderBy('date', 'desc')
-                .limit(10)
-                .get();
-              const acts = activitiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              setActivities(acts);
-              
-              const messagesSnap = await db.collection('users').doc(athleteId).collection('messages')
-                .orderBy('timestamp', 'asc')
-                .get();
-              const msgs = messagesSnap.docs.map(doc => doc.data());
-              
-              setMessages(msgs);
-            } catch (error) {
-              console.error('Error loading user data:', error);
-            }
-          };
-
-          const syncActivities = async (userData = user) => {
-            if (!userData) return;
-            
-            setSyncing(true);
-            
-            try {
-              const response = await fetch(`${API_BASE}/api/strava-sync`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: userData.stravaToken })
-              });
-              
-              if (!response.ok) throw new Error('Sync failed');
-              
-              const { activities: newActivities } = await response.json();
-              
-              const activitiesRef = db.collection('users').doc(userData.athleteId).collection('activities');
-              
-              for (const activity of newActivities) {
-                await activitiesRef.doc(activity.stravaId.toString()).set(activity);
-              }
-              
-              await db.collection('users').doc(userData.athleteId).set({ 
-                lastSync: new Date().toISOString() 
-              }, { merge: true });
-              
-              await loadUserData(userData.athleteId);
-              
-              if (newActivities.length > 0) {
-                const syncMsg = {
-                  role: 'assistant',
-                  content: `✅ Synced ${newActivities.length} activities from Strava! Let me analyze your training...`,
-                  timestamp: Date.now()
-                };
-                setMessages(prev => [...prev, syncMsg]);
-                await saveMessage(userData.athleteId, syncMsg);
-                
-                await analyzeActivities(newActivities, userData.athleteId);
-              }
-            } catch (error) {
-              console.error('Sync error:', error);
-              alert('Sync failed: ' + error.message);
-            }
-            
-            setSyncing(false);
-          };
-
-          const saveMessage = async (athleteId, message) => {
-            try {
-              await db.collection('users').doc(athleteId).collection('messages').add(message);
-            } catch (error) {
-              console.error('Error saving message:', error);
-            }
-          };
-
-          const analyzeActivities = async (activitiesData, athleteId) => {
-            setChatLoading(true);
-            
-            try {
-              // Prepare detailed activity summaries including analysis
-              const detailedSummaries = activitiesData.map(a => {
-                const summary = {
-                  name: a.name,
-                  date: new Date(a.date).toLocaleDateString(),
-                  distance_km: a.distance,
-                  pace: a.pace,
-                  avg_hr: a.avgHeartrate,
-                  max_hr: a.maxHeartrate,
-                  cadence: a.cadence
-                };
-                
-                // Add detailed analysis if available
-                if (a.detailedAnalysis) {
-                  summary.insights = a.detailedAnalysis;
+              if (code && state === localStorage.getItem('strava_state')) {
+                try {
+                  const response = await fetch(`${API_BASE}/api/strava-token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                  });
+                  
+                  const data = await response.json();
+                  const userData = {
+                    athleteId: data.athlete.id.toString(),
+                    name: `${data.athlete.firstname} ${data.athlete.lastname}`,
+                    stravaToken: data.access_token
+                  };
+                  
+                  localStorage.setItem('logue_user', JSON.stringify(userData));
+                  setUser(userData);
+                  setPhase('goal_intake');
+                  setMessages([{
+                    role: 'assistant',
+                    content: "Hi! I'm Logue, your AI running coach. What are you training for?",
+                    timestamp: Date.now()
+                  }]);
+                  
+                  window.history.replaceState({}, '', '/');
+                  localStorage.removeItem('strava_state');
+                } catch (error) {
+                  alert('Connection failed: ' + error.message);
                 }
-                
-                return summary;
-              });
-
-              const analysisPrompt = `You are Logue, an expert running coach with deep physiological knowledge. I've just synced ${activitiesData.length} activities with detailed stream data from Strava.
-
-DETAILED ACTIVITY DATA:
-${JSON.stringify(detailedSummaries, null, 2)}
-
-ANALYSIS FRAMEWORK:
-- HR Drift: >5% indicates poor aerobic efficiency or overtraining
-- Positive splits (slowing down): often means started too fast
-- Cadence drops >5 spm: form breakdown from fatigue
-- High variability: inconsistent pacing strategy
-- HR zones: too much time in Z4/Z5 suggests intensity issues
-
-YOUR TASK:
-1. Deeply analyze the data - look for patterns across multiple runs
-2. Point out 2-3 specific insights they likely didn't notice themselves (e.g., "Your HR drifted 8% on your tempo run but only 3% on your easy run - suggests you're running your tempos too hard")
-3. If you see concerning patterns, flag them directly (e.g., "Your cadence is dropping 10+ spm in every run - classic overstriding fatigue")
-4. Then ask: "What are you training for?" with examples
-
-Be direct, insightful, and reference specific numbers from their runs. Show you're analyzing at a level they can't see themselves.`;
-
-              const response = await fetch(`${API_BASE}/api/claude-chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  max_tokens: 1000,
-                  messages: [{ role: 'user', content: analysisPrompt }]
-                })
-              });
-
-              const data = await response.json();
-              const reply = data.content.find(c => c.type === 'text')?.text || 'Error analyzing activities.';
-              
-              const analysisMessage = {
-                role: 'assistant',
-                content: reply,
-                timestamp: Date.now()
-              };
-              
-              setMessages(prev => [...prev, analysisMessage]);
-              await saveMessage(athleteId, analysisMessage);
-              
-            } catch (error) {
-              console.error('Analysis error:', error);
-            }
-            
-            setChatLoading(false);
-          };
+              }
+            };
+            handleCallback();
+          }, []);
 
           const sendMessage = async () => {
-            if (onboardingPhase === 'goal_intake') {
-              // Handle goal intake conversation
-              await handleGoalIntakeMessage();
-              return;
-            }
-            
-            // Regular chat
-            if (!userInput.trim() || chatLoading || !user) return;
+            if (!input.trim() || chatLoading) return;
 
-            const newUserMessage = { 
-              role: 'user', 
-              content: userInput,
-              timestamp: Date.now()
-            };
-            
-            setMessages(prev => [...prev, newUserMessage]);
-            await saveMessage(user.athleteId, newUserMessage);
-            setUserInput('');
+            const userMsg = { role: 'user', content: input, timestamp: Date.now() };
+            setMessages(prev => [...prev, userMsg]);
+            setInput('');
             setChatLoading(true);
 
             try {
-              const activityContext = activities.map(a => ({
-                name: a.name,
-                distance_km: a.distance,
-                pace_per_km: a.pace,
-                avg_hr: a.avgHeartrate,
-                max_hr: a.maxHeartrate,
-                cadence: a.cadence,
-                date: new Date(a.date).toLocaleDateString()
-              }));
+              if (phase === 'goal_intake') {
+                const response = await fetch(`${API_BASE}/api/goal-intake`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    messages: [...messages, userMsg],
+                    goalData: null
+                  })
+                });
 
-              const conversationHistory = messages.slice(-10).map(m => ({
-                role: m.role,
-                content: m.content
-              }));
+                const data = await response.json();
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: data.reply,
+                  timestamp: Date.now()
+                }]);
 
-              const systemPrompt = `You are Logue, an expert running coach. Analyze Strava data critically and ask specific questions about HR, cadence, pacing. Be proactive about concerning patterns.
-
-Recent activities: ${JSON.stringify(activityContext, null, 2)}`;
-
-              const response = await fetch(`${API_BASE}/api/claude-chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  system: systemPrompt,
-                  max_tokens: 2000,
-                  messages: [...conversationHistory, { role: 'user', content: userInput }]
-                })
-              });
-
-              const data = await response.json();
-              const reply = data.content.find(c => c.type === 'text')?.text || 'Sorry, error occurred.';
-              
-              const assistantMessage = {
-                role: 'assistant',
-                content: reply,
-                timestamp: Date.now()
-              };
-              
-              setMessages(prev => [...prev, assistantMessage]);
-              await saveMessage(user.athleteId, assistantMessage);
-              
+                if (data.isComplete && data.goalData) {
+                  localStorage.setItem('logue_goal', JSON.stringify(data.goalData));
+                  setTimeout(() => setPhase('main'), 1000);
+                }
+              } else {
+                // Main chat (to be implemented)
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: 'Main chat not implemented yet',
+                  timestamp: Date.now()
+                }]);
+              }
             } catch (error) {
-              console.error('Error:', error);
+              console.error(error);
             }
 
             setChatLoading(false);
-          };
-
-          const signOut = () => {
-            localStorage.removeItem('logue_user');
-            setUser(null);
-            setActivities([]);
-            setMessages([]);
-          };
-
-          const scrollToBottom = () => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
           };
 
           if (loading) {
             return (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Activity className="w-12 h-12 text-orange-500 animate-pulse" />
+                <Activity />
               </div>
             );
           }
 
-          if (!user) {
+          if (phase === 'connect') {
             return (
               <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl w-full text-center">
-                  <Activity className="w-20 h-20 mx-auto mb-6 text-orange-500" />
-                  <h1 className="text-4xl font-bold text-gray-800 mb-4">Logue</h1>
-                  <p className="text-xl text-gray-600 mb-8">
-                    Your AI running coach powered by Strava
-                  </p>
-                  
-                  {syncing ? (
-                    <div className="flex items-center justify-center gap-3 text-orange-600">
-                      <RefreshCw className="w-6 h-6 animate-spin" />
-                      <span>Connecting to Strava...</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={connectStrava}
-                      className="bg-orange-500 text-white py-4 px-8 rounded-lg font-semibold hover:bg-orange-600 transition inline-flex items-center gap-3 text-lg"
-                    >
-                      <img 
-                        src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg" 
-                        alt="Strava" 
-                        className="h-6"
-                      />
-                      Connect with Strava
-                    </button>
-                  )}
+                  <Activity />
+                  <h1 className="text-4xl font-bold text-gray-800 mb-4 mt-6">Logue</h1>
+                  <p className="text-xl text-gray-600 mb-8">Your AI running coach</p>
+                  <button
+                    onClick={connectStrava}
+                    className="bg-orange-500 text-white py-4 px-8 rounded-lg font-semibold hover:bg-orange-600 transition"
+                  >
+                    Connect with Strava
+                  </button>
                 </div>
               </div>
             );
           }
 
-          // Goal intake phase - show chat interface
-          if (onboardingPhase === 'goal_intake') {
+          if (phase === 'goal_intake') {
             return (
               <div className="h-screen flex flex-col bg-gray-50">
-                <div className="bg-white border-b px-4 md:px-6 py-3 md:py-4 shadow-sm">
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <Activity className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
-                    <h1 className="text-base md:text-lg font-semibold text-gray-800">Logue</h1>
-                    <span className="text-xs md:text-sm text-gray-500">• Goal Setup</span>
-                  </div>
+                <div className="bg-white border-b px-6 py-4 shadow-sm">
+                  <h1 className="text-lg font-semibold text-gray-800">Logue • Goal Setup</h1>
                 </div>
 
                 <div className="flex-1 flex items-center justify-center p-4">
-                  <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl flex flex-col" style={{ height: '600px' }}>
+                  <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl flex flex-col h-[600px]">
                     <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                       {messages.map((msg, idx) => (
                         <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[85%] ${
+                          <div className={`max-w-[85%] px-5 py-3 rounded-2xl shadow-sm ${
                             msg.role === 'user' 
-                              ? 'bg-orange-500 text-white rounded-2xl rounded-br-sm' 
-                              : 'bg-gray-100 text-gray-800 rounded-2xl rounded-bl-sm'
-                          } px-5 py-3 shadow-sm`}>
+                              ? 'bg-orange-500 text-white rounded-br-sm' 
+                              : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                          }`}>
                             <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                           </div>
                         </div>
@@ -570,8 +217,8 @@ Recent activities: ${JSON.stringify(activityContext, null, 2)}`;
                           <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-5 py-3">
                             <div className="flex gap-1.5">
                               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                             </div>
                           </div>
                         </div>
@@ -579,12 +226,12 @@ Recent activities: ${JSON.stringify(activityContext, null, 2)}`;
                       <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="border-t bg-white px-6 py-4">
+                    <div className="border-t px-6 py-4">
                       <div className="flex gap-3">
                         <input
                           type="text"
-                          value={userInput}
-                          onChange={(e) => setUserInput(e.target.value)}
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                           placeholder="Type your answer..."
                           className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -593,10 +240,10 @@ Recent activities: ${JSON.stringify(activityContext, null, 2)}`;
                         />
                         <button
                           onClick={sendMessage}
-                          disabled={chatLoading || !userInput.trim()}
+                          disabled={chatLoading || !input.trim()}
                           className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 disabled:opacity-40"
                         >
-                          <Send className="w-5 h-5" />
+                          <Send />
                         </button>
                       </div>
                     </div>
@@ -608,138 +255,29 @@ Recent activities: ${JSON.stringify(activityContext, null, 2)}`;
 
           return (
             <div className="h-screen flex flex-col bg-gray-50">
-              <div className="bg-white border-b px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <Activity className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
-                  <h1 className="text-base md:text-lg font-semibold text-gray-800">Logue</h1>
-                  <span className="text-xs md:text-sm text-gray-500">• {user.name.split(' ')[0]}</span>
-                </div>
-                <div className="flex items-center gap-2 md:gap-4">
+              <div className="bg-white border-b px-6 py-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-lg font-semibold text-gray-800">Logue • {user?.name}</h1>
                   <button
-                    onClick={() => syncActivities()}
-                    disabled={syncing}
-                    className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-gray-600 hover:text-gray-800 transition disabled:opacity-50"
+                    onClick={() => {
+                      localStorage.clear();
+                      window.location.reload();
+                    }}
+                    className="text-sm text-gray-600 hover:text-gray-800"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${syncing ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync'}</span>
-                  </button>
-                  <button onClick={signOut} className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-gray-600 hover:text-gray-800">
-                    <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    <span className="hidden sm:inline">Sign Out</span>
+                    Sign Out
                   </button>
                 </div>
               </div>
-
-              <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-                <div className="w-full md:w-1/2 flex flex-col bg-white md:border-r">
-                  <div className="px-4 md:px-6 py-3 md:py-4 border-b bg-gray-50">
-                    <h2 className="font-semibold text-gray-700 text-sm md:text-base">Chat with Logue</h2>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-                    {messages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] ${
-                          msg.role === 'user' 
-                            ? 'bg-orange-500 text-white rounded-2xl rounded-br-sm' 
-                            : 'bg-gray-100 text-gray-800 rounded-2xl rounded-bl-sm'
-                        } px-4 md:px-5 py-2.5 md:py-3 shadow-sm`}>
-                          <p className="text-xs md:text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {chatLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 md:px-5 py-2.5 md:py-3">
-                          <div className="flex gap-1.5">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  <div className="border-t bg-white px-4 md:px-6 py-3 md:py-4">
-                    <div className="flex gap-2 md:gap-3">
-                      <input
-                        type="text"
-                        value={userInput}
-                        onChange={(e) => setUserInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                        placeholder="Type your message..."
-                        className="flex-1 px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base"
-                        disabled={chatLoading}
-                      />
-                      <button
-                        onClick={sendMessage}
-                        disabled={chatLoading || !userInput.trim()}
-                        className="bg-orange-500 text-white p-2 md:p-3 rounded-xl hover:bg-orange-600 disabled:opacity-40"
-                      >
-                        <Send className="w-4 h-4 md:w-5 md:h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="w-full md:w-1/2 flex flex-col bg-gray-50 border-t md:border-t-0">
-                  <div className="px-4 md:px-6 py-3 md:py-4 border-b bg-white">
-                    <h2 className="font-semibold text-gray-700 text-sm md:text-base">Recent Activities</h2>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 md:space-y-3">
-                    {activities.length === 0 ? (
-                      <div className="text-center py-8 md:py-12 text-gray-400">
-                        <Activity className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 opacity-50" />
-                        <p className="text-sm md:text-base">No activities yet</p>
-                        <p className="text-xs md:text-sm mt-2">Click Sync to load from Strava</p>
-                      </div>
-                    ) : (
-                      activities.map(activity => (
-                        <div key={activity.id} className="bg-white rounded-lg p-3 md:p-4 border-2 border-gray-200">
-                          <div className="flex items-start justify-between mb-2 md:mb-3">
-                            <div>
-                              <h3 className="font-semibold text-gray-800 text-sm md:text-base">{activity.name}</h3>
-                              <p className="text-xs md:text-sm text-gray-500">{new Date(activity.date).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
-                            <div>
-                              <p className="text-gray-500">Distance</p>
-                              <p className="font-semibold text-gray-800">{activity.distance} km</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Pace</p>
-                              <p className="font-semibold text-gray-800">{activity.pace}/km</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 flex items-center gap-1">
-                                <Heart className="w-2.5 h-2.5 md:w-3 md:h-3" /> Avg HR
-                              </p>
-                              <p className="font-semibold">{activity.avgHeartrate} bpm</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 flex items-center gap-1">
-                                <Zap className="w-2.5 h-2.5 md:w-3 md:h-3" /> Cadence
-                              </p>
-                              <p className="font-semibold">{activity.cadence} spm</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-gray-600">Main app view - Coming soon!</p>
               </div>
             </div>
           );
-        };
+        }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<Logue />);
+        root.render(<App />);
     </script>
 </body>
 </html>
