@@ -14,6 +14,18 @@ module.exports = async (req, res) => {
   const { messages, system, max_tokens } = req.body;
 
   try {
+    // Validate messages
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      throw new Error('Messages array is required');
+    }
+
+    // Filter out any empty messages
+    const validMessages = messages.filter(m => m.content && m.content.trim() !== '');
+
+    if (validMessages.length === 0) {
+      throw new Error('No valid messages provided');
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -25,12 +37,13 @@ module.exports = async (req, res) => {
         model: 'claude-sonnet-4-20250514',
         max_tokens: max_tokens || 2000,
         system: system,
-        messages: messages
+        messages: validMessages
       })
     });
 
     if (!response.ok) {
       const error = await response.json();
+      console.error('Anthropic API error:', error);
       throw new Error(error.error?.message || 'Claude API error');
     }
 
@@ -39,6 +52,10 @@ module.exports = async (req, res) => {
     
   } catch (error) {
     console.error('Claude API error:', error);
-    return res.status(500).json({ error: error.message });
+    // Return error in a format that won't break callers
+    return res.status(500).json({ 
+      content: [{ type: 'text', text: `Error: ${error.message}` }],
+      error: error.message 
+    });
   }
 };
