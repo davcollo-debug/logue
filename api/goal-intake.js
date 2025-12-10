@@ -47,7 +47,6 @@ You: "Perfect! Let me confirm: You're training for a marathon on June 15, 2025, 
 User: "Yes"
 You: "GOAL_COMPLETE: {goalType: 'marathon', distance: 42.2, targetDate: '2025-06-15', targetTime: '3:59:59'}"`;
 
-    // Strip timestamp from messages before sending to Claude
     const cleanMessages = messages.map(m => ({
       role: m.role,
       content: m.content
@@ -66,8 +65,34 @@ You: "GOAL_COMPLETE: {goalType: 'marathon', distance: 42.2, targetDate: '2025-06
     const data = await response.json();
     const reply = data.content.find(c => c.type === 'text')?.text || 'Error in conversation.';
     
-    // Check if goal is complete
     const isComplete = reply.includes('GOAL_COMPLETE');
     let extractedGoal = null;
     
-    if (isComplete)
+    if (isComplete) {
+      const jsonMatch = reply.match(/\{[^}]+\}/);
+      if (jsonMatch) {
+        try {
+          extractedGoal = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+          console.error('Failed to parse goal JSON:', e);
+        }
+      }
+      const cleanReply = reply.replace(/GOAL_COMPLETE:?\s*\{[^}]+\}/, '').trim();
+      return res.status(200).json({ 
+        reply: cleanReply, 
+        isComplete: true, 
+        goalData: extractedGoal 
+      });
+    }
+    
+    return res.status(200).json({ 
+      reply: reply, 
+      isComplete: false, 
+      goalData: null 
+    });
+    
+  } catch (error) {
+    console.error('Goal intake error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+};
