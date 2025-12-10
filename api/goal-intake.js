@@ -72,10 +72,8 @@ You: "GOAL_COMPLETE: {\"goalType\": \"marathon\", \"distance\": 42.2, \"targetDa
       const jsonMatch = reply.match(/\{[^}]+\}/);
       if (jsonMatch) {
         try {
-          let jsonStr = jsonMatch[0]
-            .replace(/(\w+):/g, '"$1":')
-            .replace(/'/g, '"');
-          extractedGoal = JSON.parse(jsonStr);
+          // Try parsing directly - Claude gives us valid JSON
+          extractedGoal = JSON.parse(jsonMatch[0]);
         } catch (e) {
           console.error('Failed to parse goal JSON:', e, 'Original:', jsonMatch[0]);
         }
