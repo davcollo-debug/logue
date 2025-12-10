@@ -72,4 +72,31 @@ You: "GOAL_COMPLETE: {\"goalType\": \"marathon\", \"distance\": 42.2, \"targetDa
       const jsonMatch = reply.match(/\{[^}]+\}/);
       if (jsonMatch) {
         try {
-          //
+          // Fix common JSON issues
+          let jsonStr = jsonMatch[0]
+            .replace(/(\w+):/g, '"$1":')  // Add quotes around unquoted keys
+            .replace(/'/g, '"');           // Replace single quotes with double quotes
+          extractedGoal = JSON.parse(jsonStr);
+        } catch (e) {
+          console.error('Failed to parse goal JSON:', e, 'Original:', jsonMatch[0]);
+        }
+      }
+      const cleanReply = reply.replace(/GOAL_COMPLETE:?\s*\{[^}]+\}/, '').trim();
+      return res.status(200).json({ 
+        reply: cleanReply, 
+        isComplete: true, 
+        goalData: extractedGoal 
+      });
+    }
+    
+    return res.status(200).json({ 
+      reply: reply, 
+      isComplete: false, 
+      goalData: null 
+    });
+    
+  } catch (error) {
+    console.error('Goal intake error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+};
