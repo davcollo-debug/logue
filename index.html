@@ -79,6 +79,8 @@
         const Logue = () => {
           const [user, setUser] = useState(null);
           const [loading, setLoading] = useState(true);
+          const [onboardingPhase, setOnboardingPhase] = useState('initial'); // 'initial', 'goal_intake', 'complete'
+          const [goalData, setGoalData] = useState(null);
           const [activities, setActivities] = useState([]);
           const [messages, setMessages] = useState([]);
           const [userInput, setUserInput] = useState('');
@@ -89,11 +91,26 @@
           useEffect(() => {
             // Check if user is stored in localStorage
             const storedUser = localStorage.getItem('logue_user');
+            const storedGoal = localStorage.getItem('logue_goal');
+            
             if (storedUser) {
               const userData = JSON.parse(storedUser);
               setUser(userData);
-              loadUserData(userData.athleteId);
+              
+              if (storedGoal) {
+                setGoalData(JSON.parse(storedGoal));
+                setOnboardingPhase('complete');
+                loadUserData(userData.athleteId);
+              } else {
+                // Has Strava but no goal - start goal intake
+                setOnboardingPhase('goal_intake');
+                startGoalIntake();
+              }
+            } else {
+              // No user - show connect screen
+              setOnboardingPhase('initial');
             }
+            
             handleStravaCallback();
             setLoading(false);
           }, []);
@@ -151,7 +168,10 @@
                   lastSync: null
                 }, { merge: true });
                 
-                await syncActivities(userData);
+                // Start goal intake flow
+                setOnboardingPhase('goal_intake');
+                startGoalIntake();
+                
                 window.history.replaceState({}, document.title, window.location.pathname);
                 localStorage.removeItem('strava_state');
                 setSyncing(false);
@@ -163,7 +183,93 @@
             }
           };
 
-          const loadUserData = async (athleteId) => {
+          const startGoalIntake = async () => {
+            const welcomeMessage = {
+              role: 'assistant',
+              content: "Hi! I'm Logue, your AI running coach. What are you training for?",
+              timestamp: Date.now()
+            };
+            setMessages([welcomeMessage]);
+          };
+
+          const handleGoalIntakeMessage = async () => {
+            if (!userInput.trim() || chatLoading) return;
+
+            const newUserMessage = { 
+              role: 'user', 
+              content: userInput,
+              timestamp: Date.now()
+            };
+            
+            setMessages(prev => [...prev, newUserMessage]);
+            setUserInput('');
+            setChatLoading(true);
+
+            try {
+              const conversationHistory = messages.map(m => ({
+                role: m.role,
+                content: m.content
+              }));
+
+              const response = await fetch(`${API_BASE}/api/goal-intake`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: [...conversationHistory, { role: 'user', content: newUserMessage.content }],
+                  goalData: goalData
+                })
+              });
+
+              const data = await response.json();
+              
+              const assistantMessage = {
+                role: 'assistant',
+                content: data.reply,
+                timestamp: Date.now()
+              };
+              
+              setMessages(prev => [...prev, assistantMessage]);
+              
+              if (data.isComplete && data.goalData) {
+                // Goal intake complete!
+                setGoalData(data.goalData);
+                localStorage.setItem('logue_goal', JSON.stringify(data.goalData));
+                setOnboardingPhase('complete');
+                
+                // Now trigger initial plan generation
+                await generateInitialPlan(data.goalData);
+              }
+              
+            } catch (error) {
+              console.error('Goal intake error:', error);
+            }
+
+            setChatLoading(false);
+          };
+
+          const generateInitialPlan = async (goal) => {
+            setChatLoading(true);
+            
+            try {
+              // This will be the plan generation logic
+              const planMessage = {
+                role: 'assistant',
+                content: `Great! Let me create your training plan for ${goal.goalType} on ${new Date(goal.targetDate).toLocaleDateString()}...`,
+                timestamp: Date.now()
+              };
+              
+              setMessages(prev => [...prev, planMessage]);
+              
+              // TODO: Call plan generation API here
+              // For now, just sync activities
+              await syncActivities(user);
+              
+            } catch (error) {
+              console.error('Plan generation error:', error);
+            }
+            
+            setChatLoading(false);
+          };
             try {
               const activitiesSnap = await db.collection('users').doc(athleteId).collection('activities')
                 .orderBy('date', 'desc')
@@ -311,6 +417,13 @@ Be direct, insightful, and reference specific numbers from their runs. Show you'
           };
 
           const sendMessage = async () => {
+            if (onboardingPhase === 'goal_intake') {
+              // Handle goal intake conversation
+              await handleGoalIntakeMessage();
+              return;
+            }
+            
+            // Regular chat
             if (!userInput.trim() || chatLoading || !user) return;
 
             const newUserMessage = { 
@@ -420,6 +533,74 @@ Recent activities: ${JSON.stringify(activityContext, null, 2)}`;
                       Connect with Strava
                     </button>
                   )}
+                </div>
+              </div>
+            );
+          }
+
+          // Goal intake phase - show chat interface
+          if (onboardingPhase === 'goal_intake') {
+            return (
+              <div className="h-screen flex flex-col bg-gray-50">
+                <div className="bg-white border-b px-4 md:px-6 py-3 md:py-4 shadow-sm">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Activity className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
+                    <h1 className="text-base md:text-lg font-semibold text-gray-800">Logue</h1>
+                    <span className="text-xs md:text-sm text-gray-500">• Goal Setup</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl flex flex-col" style={{ height: '600px' }}>
+                    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                      {messages.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] ${
+                            msg.role === 'user' 
+                              ? 'bg-orange-500 text-white rounded-2xl rounded-br-sm' 
+                              : 'bg-gray-100 text-gray-800 rounded-2xl rounded-bl-sm'
+                          } px-5 py-3 shadow-sm`}>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {chatLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-5 py-3">
+                            <div className="flex gap-1.5">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    <div className="border-t bg-white px-6 py-4">
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value={userInput}
+                          onChange={(e) => setUserInput(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                          placeholder="Type your answer..."
+                          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          disabled={chatLoading}
+                          autoFocus
+                        />
+                        <button
+                          onClick={sendMessage}
+                          disabled={chatLoading || !userInput.trim()}
+                          className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 disabled:opacity-40"
+                        >
+                          <Send className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
