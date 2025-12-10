@@ -147,7 +147,16 @@
 
                 if (data.isComplete && data.goalData) {
                   localStorage.setItem('logue_goal', JSON.stringify(data.goalData));
-                  setTimeout(() => setPhase('main'), 1000);
+                  
+                  // Don't transition yet - do fitness assessment first
+                  setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: 'Perfect! Let me analyze your recent Strava activities to understand your current fitness level...',
+                    timestamp: Date.now()
+                  }]);
+                  
+                  // Call fitness assessment
+                  await assessFitness(data.goalData);
                 }
               } else {
                 // Main chat (to be implemented)
