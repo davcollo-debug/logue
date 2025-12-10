@@ -32,17 +32,14 @@
         if (!firebase.apps.length) {
           firebase.initializeApp(FIREBASE_CONFIG);
         }
-        const db = firebase.firestore();
 
-        // Simple icon components
         const Activity = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>;
         const Send = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>;
-        const RefreshCw = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>;
 
         function App() {
           const [user, setUser] = useState(null);
           const [loading, setLoading] = useState(true);
-          const [phase, setPhase] = useState('connect'); // 'connect', 'goal_intake', 'main'
+          const [phase, setPhase] = useState('connect');
           const [messages, setMessages] = useState([]);
           const [input, setInput] = useState('');
           const [chatLoading, setChatLoading] = useState(false);
@@ -51,11 +48,14 @@
           useEffect(() => {
             const storedUser = localStorage.getItem('logue_user');
             const storedGoal = localStorage.getItem('logue_goal');
+            const storedFitness = localStorage.getItem('logue_fitness');
             
             if (storedUser) {
               setUser(JSON.parse(storedUser));
-              if (storedGoal) {
+              if (storedGoal && storedFitness) {
                 setPhase('main');
+              } else if (storedGoal) {
+                setPhase('fitness_assessment');
               } else {
                 setPhase('goal_intake');
                 setMessages([{
@@ -71,13 +71,6 @@
           useEffect(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
           }, [messages]);
-
-          const connectStrava = () => {
-            const state = Math.random().toString(36).substring(7);
-            localStorage.setItem('strava_state', state);
-            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${window.location.origin}&response_type=code&scope=read,activity:read_all&state=${state}`;
-            window.location.href = authUrl;
-          };
 
           useEffect(() => {
             const handleCallback = async () => {
@@ -119,6 +112,103 @@
             handleCallback();
           }, []);
 
+          const connectStrava = () => {
+            const state = Math.random().toString(36).substring(7);
+            localStorage.setItem('strava_state', state);
+            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${window.location.origin}&response_type=code&scope=read,activity:read_all&state=${state}`;
+            window.location.href = authUrl;
+          };
+
+          const assessFitness = async (goalData) => {
+            console.log('Starting fitness assessment...');
+            setChatLoading(true);
+            
+            try {
+              console.log('Syncing Strava activities...');
+              const syncResponse = await fetch(`${API_BASE}/api/strava-sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: user.stravaToken })
+              });
+              
+              console.log('Sync response status:', syncResponse.status);
+              const syncData = await syncResponse.json();
+              console.log('Synced activities:', syncData);
+              
+              const { activities } = syncData;
+              
+              if (!activities || activities.length === 0) {
+                throw new Error('No activities found');
+              }
+
+              const assessmentPrompt = `You are Logue, an expert running coach. Analyze this runner's recent training history and their goal.
+
+GOAL:
+${JSON.stringify(goalData, null, 2)}
+
+RECENT ACTIVITIES (last 30 days):
+${JSON.stringify(activities.slice(0, 15).map(a => ({
+  name: a.name,
+  date: a.date,
+  distance_km: a.distance,
+  pace: a.pace,
+  avgHeartrate: a.avgHeartrate,
+  cadence: a.cadence
+})), null, 2)}
+
+YOUR TASK:
+1. Assess their current fitness level (beginner/intermediate/advanced)
+2. Calculate their average weekly volume over the last 4 weeks
+3. Note their typical pace range
+4. Identify their longest recent run
+5. Note any concerning patterns (inconsistency, no long runs, etc.)
+
+Provide a 2-3 sentence assessment that's encouraging but honest. Then say you're ready to create their personalized plan.`;
+
+              console.log('Calling Claude for fitness assessment...');
+              const response = await fetch(`${API_BASE}/api/claude-chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  max_tokens: 500,
+                  messages: [{ role: 'user', content: assessmentPrompt }]
+                })
+              });
+
+              const data = await response.json();
+              console.log('Claude response:', data);
+              const assessment = data.content?.find(c => c.type === 'text')?.text || 'Assessment complete.';
+              
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: assessment,
+                timestamp: Date.now()
+              }]);
+              
+              localStorage.setItem('logue_fitness', JSON.stringify({ activities, assessment }));
+              
+              setTimeout(() => {
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: 'Now let me create your personalized training plan...',
+                  timestamp: Date.now()
+                }]);
+                setTimeout(() => setPhase('main'), 2000);
+              }, 2000);
+              
+            } catch (error) {
+              console.error('Fitness assessment error:', error);
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: 'I had trouble accessing your Strava data. Let me create a plan based on your goal instead.',
+                timestamp: Date.now()
+              }]);
+              setTimeout(() => setPhase('main'), 2000);
+            }
+            
+            setChatLoading(false);
+          };
+
           const sendMessage = async () => {
             if (!input.trim() || chatLoading) return;
 
@@ -148,18 +238,15 @@
                 if (data.isComplete && data.goalData) {
                   localStorage.setItem('logue_goal', JSON.stringify(data.goalData));
                   
-                  // Don't transition yet - do fitness assessment first
                   setMessages(prev => [...prev, {
                     role: 'assistant',
                     content: 'Perfect! Let me analyze your recent Strava activities to understand your current fitness level...',
                     timestamp: Date.now()
                   }]);
                   
-                  // Call fitness assessment
                   await assessFitness(data.goalData);
                 }
               } else {
-                // Main chat (to be implemented)
                 setMessages(prev => [...prev, {
                   role: 'assistant',
                   content: 'Main chat not implemented yet',
@@ -199,11 +286,13 @@
             );
           }
 
-          if (phase === 'goal_intake') {
+          if (phase === 'goal_intake' || phase === 'fitness_assessment') {
             return (
               <div className="h-screen flex flex-col bg-gray-50">
                 <div className="bg-white border-b px-6 py-4 shadow-sm">
-                  <h1 className="text-lg font-semibold text-gray-800">Logue • Goal Setup</h1>
+                  <h1 className="text-lg font-semibold text-gray-800">
+                    Logue • {phase === 'goal_intake' ? 'Goal Setup' : 'Fitness Assessment'}
+                  </h1>
                 </div>
 
                 <div className="flex-1 flex items-center justify-center p-4">
@@ -242,14 +331,14 @@
                           value={input}
                           onChange={(e) => setInput(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                          placeholder="Type your answer..."
+                          placeholder={phase === 'goal_intake' ? "Type your answer..." : ""}
                           className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          disabled={chatLoading}
-                          autoFocus
+                          disabled={chatLoading || phase === 'fitness_assessment'}
+                          autoFocus={phase === 'goal_intake'}
                         />
                         <button
                           onClick={sendMessage}
-                          disabled={chatLoading || !input.trim()}
+                          disabled={chatLoading || !input.trim() || phase === 'fitness_assessment'}
                           className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 disabled:opacity-40"
                         >
                           <Send />
