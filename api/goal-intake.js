@@ -47,13 +47,19 @@ You: "Perfect! Let me confirm: You're training for a marathon on June 15, 2025, 
 User: "Yes"
 You: "GOAL_COMPLETE: {goalType: 'marathon', distance: 42.2, targetDate: '2025-06-15', targetTime: '3:59:59'}"`;
 
+    // Strip timestamp from messages before sending to Claude
+    const cleanMessages = messages.map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+
     const response = await fetch(`${process.env.API_BASE || 'https://logue.vercel.app'}/api/claude-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: systemPrompt,
         max_tokens: 500,
-        messages: messages
+        messages: cleanMessages
       })
     });
 
@@ -64,33 +70,4 @@ You: "GOAL_COMPLETE: {goalType: 'marathon', distance: 42.2, targetDate: '2025-06
     const isComplete = reply.includes('GOAL_COMPLETE');
     let extractedGoal = null;
     
-    if (isComplete) {
-      // Extract the JSON from the response
-      const jsonMatch = reply.match(/\{[^}]+\}/);
-      if (jsonMatch) {
-        try {
-          extractedGoal = JSON.parse(jsonMatch[0]);
-        } catch (e) {
-          console.error('Failed to parse goal JSON:', e);
-        }
-      }
-      // Remove the GOAL_COMPLETE marker from the reply
-      const cleanReply = reply.replace(/GOAL_COMPLETE:?\s*\{[^}]+\}/, '').trim();
-      return res.status(200).json({ 
-        reply: cleanReply, 
-        isComplete: true, 
-        goalData: extractedGoal 
-      });
-    }
-    
-    return res.status(200).json({ 
-      reply: reply, 
-      isComplete: false, 
-      goalData: null 
-    });
-    
-  } catch (error) {
-    console.error('Goal intake error:', error);
-    return res.status(500).json({ error: error.message });
-  }
-};
+    if (isComplete)
