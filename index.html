@@ -44,6 +44,7 @@
           const [input, setInput] = useState('');
           const [chatLoading, setChatLoading] = useState(false);
           const [showPlanButton, setShowPlanButton] = useState(false);
+          const [plan, setPlan] = useState(null);
           const messagesEndRef = useRef(null);
 
           useEffect(() => {
@@ -204,14 +205,50 @@ Provide a 2-3 sentence assessment that's encouraging but honest. Then say you're
             setChatLoading(false);
           };
 
-          const generatePlan = () => {
+          const generatePlan = async () => {
             setShowPlanButton(false);
+            setChatLoading(true);
             setMessages(prev => [...prev, {
               role: 'assistant',
               content: 'Great! Let me create your personalized training plan...',
               timestamp: Date.now()
             }]);
-            setTimeout(() => setPhase('main'), 2000);
+            
+            try {
+              const goalData = JSON.parse(localStorage.getItem('logue_goal'));
+              const fitnessData = JSON.parse(localStorage.getItem('logue_fitness'));
+              
+              const response = await fetch(`${API_BASE}/api/plan-generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goalData, fitnessData })
+              });
+              
+              const data = await response.json();
+              console.log('Plan generated:', data);
+              
+              setPlan(data);
+              localStorage.setItem('logue_plan', JSON.stringify(data));
+              
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: data.planText,
+                timestamp: Date.now()
+              }]);
+              
+              setTimeout(() => setPhase('main'), 2000);
+              
+            } catch (error) {
+              console.error('Plan generation error:', error);
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: 'Sorry, I had trouble generating your plan. Please try again.',
+                timestamp: Date.now()
+              }]);
+              setShowPlanButton(true);
+            }
+            
+            setChatLoading(false);
           };
 
           const sendMessage = async () => {
@@ -381,8 +418,34 @@ Provide a 2-3 sentence assessment that's encouraging but honest. Then say you're
                   </button>
                 </div>
               </div>
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-gray-600">Main app view - Coming soon!</p>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="max-w-4xl mx-auto space-y-6">
+                  <div className="bg-white rounded-xl shadow-lg p-8">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Your Training Plan</h2>
+                    
+                    {plan?.planStructure && (
+                      <div className="space-y-4 mb-6">
+                        <div className="text-sm text-gray-600">
+                          {plan.planStructure.totalWeeks} week plan
+                        </div>
+                        
+                        {plan.planStructure.phases?.map((phase, idx) => (
+                          <div key={idx} className="border-l-4 border-orange-500 pl-4 py-2">
+                            <h3 className="font-semibold text-gray-800">{phase.name}</h3>
+                            <p className="text-sm text-gray-600">Weeks {phase.weeks}</p>
+                            <p className="text-sm text-gray-700 mt-1">{phase.focus}</p>
+                            <p className="text-sm text-orange-600 mt-1">{phase.weeklyVolume}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="prose max-w-none">
+                      <div className="whitespace-pre-wrap text-gray-700">{plan?.planText}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           );
