@@ -43,6 +43,7 @@
           const [messages, setMessages] = useState([]);
           const [input, setInput] = useState('');
           const [chatLoading, setChatLoading] = useState(false);
+          const [showPlanButton, setShowPlanButton] = useState(false);
           const messagesEndRef = useRef(null);
 
           useEffect(() => {
@@ -187,14 +188,8 @@ Provide a 2-3 sentence assessment that's encouraging but honest. Then say you're
               
               localStorage.setItem('logue_fitness', JSON.stringify({ activities, assessment }));
               
-              setTimeout(() => {
-                setMessages(prev => [...prev, {
-                  role: 'assistant',
-                  content: 'Now let me create your personalized training plan...',
-                  timestamp: Date.now()
-                }]);
-                setTimeout(() => setPhase('main'), 2000);
-              }, 2000);
+              // Show the "Generate Plan" button instead of auto-transitioning
+              setShowPlanButton(true);
               
             } catch (error) {
               console.error('Fitness assessment error:', error);
@@ -203,10 +198,20 @@ Provide a 2-3 sentence assessment that's encouraging but honest. Then say you're
                 content: 'I had trouble accessing your Strava data. Let me create a plan based on your goal instead.',
                 timestamp: Date.now()
               }]);
-              setTimeout(() => setPhase('main'), 2000);
+              setShowPlanButton(true);
             }
             
             setChatLoading(false);
+          };
+
+          const generatePlan = () => {
+            setShowPlanButton(false);
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: 'Great! Let me create your personalized training plan...',
+              timestamp: Date.now()
+            }]);
+            setTimeout(() => setPhase('main'), 2000);
           };
 
           const sendMessage = async () => {
@@ -325,25 +330,34 @@ Provide a 2-3 sentence assessment that's encouraging but honest. Then say you're
                     </div>
 
                     <div className="border-t px-6 py-4">
-                      <div className="flex gap-3">
-                        <input
-                          type="text"
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                          placeholder={phase === 'goal_intake' ? "Type your answer..." : ""}
-                          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          disabled={chatLoading || phase === 'fitness_assessment'}
-                          autoFocus={phase === 'goal_intake'}
-                        />
+                      {showPlanButton ? (
                         <button
-                          onClick={sendMessage}
-                          disabled={chatLoading || !input.trim() || phase === 'fitness_assessment'}
-                          className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 disabled:opacity-40"
+                          onClick={generatePlan}
+                          className="w-full bg-orange-500 text-white py-4 px-6 rounded-xl font-semibold hover:bg-orange-600 transition"
                         >
-                          <Send />
+                          Generate My Training Plan
                         </button>
-                      </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                            placeholder={phase === 'goal_intake' ? "Type your answer..." : ""}
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            disabled={chatLoading || phase === 'fitness_assessment'}
+                            autoFocus={phase === 'goal_intake'}
+                          />
+                          <button
+                            onClick={sendMessage}
+                            disabled={chatLoading || !input.trim() || phase === 'fitness_assessment'}
+                            className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 disabled:opacity-40"
+                          >
+                            <Send />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
