@@ -27,26 +27,37 @@ Recent training volume: ${Math.round(fitnessData.activities.reduce((sum, a) => s
 YOUR TASK:
 Create a training plan from now until their goal date (${goalData.targetDate}).
 
-First, provide the high-level structure as a JSON object (no markdown, just pure JSON):
-{
-  "totalWeeks": <number>,
-  "phases": [
-    {
-      "name": "Base Building",
-      "weeks": "1-4",
-      "focus": "Building aerobic base",
-      "weeklyVolume": "50-70km"
-    }
-  ]
-}
+First, provide the high-level structure as a JSON object on a single line:
+{"totalWeeks": <number>, "phases": [{"name": "Base Building", "weeks": "1-4", "focus": "Building aerobic base", "weeklyVolume": "50-70km"}]}
 
 Then, provide THIS WEEK's specific sessions (Week 1) in plain text:
 
-**Monday**: Easy 8k run
+WEEK 1 - Base Building
+
+Monday: Easy 8k run
 - Keep HR below 145 bpm
 - Purpose: Recovery and base building
-// Extract JSON structure
-    const jsonMatch = planText.match(/\{[\s\S]*?"phases"[\s\S]*?\}/);
+
+Wednesday: Tempo 10k
+- Target pace: 5:20-5:30/km
+- Purpose: Building lactate threshold
+
+Be specific with numbers. Make it appropriate for their current fitness.`;
+
+    const response = await fetch(`${process.env.API_BASE || 'https://logue.vercel.app'}/api/claude-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: planPrompt }]
+      })
+    });
+
+    const data = await response.json();
+    let planText = data.content?.find(c => c.type === 'text')?.text || '';
+    
+    // Extract JSON structure
+    const jsonMatch = planText.match(/\{[^{}]*"phases"[^{}]*\[[\s\S]*?\]\s*\}/);
     let planStructure = null;
     
     if (jsonMatch) {
@@ -64,47 +75,12 @@ Then, provide THIS WEEK's specific sessions (Week 1) in plain text:
         }
       }
       
-      // Remove ALL JSON from the text (including any leading/trailing text around it)
-      planText = planText.replace(/\{[\s\S]*?\}/g, '').trim();
+      // Remove the JSON from planText
+      planText = planText.replace(jsonMatch[0], '');
     }
     
-    // Clean up any markdown code blocks
-    planText = planText
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .replace(/^\s*\n/gm, '') // Remove empty lines at start
-      .trim();
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: planPrompt }]
-      })
-    });
-
-    const data = await response.json();
-    let planText = data.content?.find(c => c.type === 'text')?.text || '';
-    
-    // Extract JSON structure
-    const jsonMatch = planText.match(/\{[\s\S]*?"phases"[\s\S]*?\}/);
-    let planStructure = null;
-    
-    if (jsonMatch) {
-      try {
-        let jsonStr = jsonMatch[0]
-          .replace(/(\w+):/g, '"$1":')
-          .replace(/'/g, '"');
-        planStructure = JSON.parse(jsonStr);
-        
-        // Remove the JSON from the text output
-        planText = planText.replace(jsonMatch[0], '').trim();
-      } catch (e) {
-        console.error('Failed to parse plan JSON:', e, 'Original:', jsonMatch[0]);
-      }
-    }
-    
-    // Clean up any markdown code blocks
-    planText = planText
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
+    // Clean up the text
+    planText = planText.trim();
     
     return res.status(200).json({ 
       planText,
