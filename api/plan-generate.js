@@ -45,19 +45,35 @@ Then, provide THIS WEEK's specific sessions (Week 1) in plain text:
 **Monday**: Easy 8k run
 - Keep HR below 145 bpm
 - Purpose: Recovery and base building
-
-**Wednesday**: Tempo 10k
-- Target pace: 5:20-5:30/km
-- Purpose: Building lactate threshold
-
-(etc...)
-
-Be specific with numbers. Make it appropriate for their current fitness.`;
-
-    const response = await fetch(`${process.env.API_BASE || 'https://logue.vercel.app'}/api/claude-chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+// Extract JSON structure
+    const jsonMatch = planText.match(/\{[\s\S]*?"phases"[\s\S]*?\}/);
+    let planStructure = null;
+    
+    if (jsonMatch) {
+      try {
+        planStructure = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        // Try fixing unquoted keys
+        try {
+          let jsonStr = jsonMatch[0]
+            .replace(/(\w+):/g, '"$1":')
+            .replace(/'/g, '"');
+          planStructure = JSON.parse(jsonStr);
+        } catch (e2) {
+          console.error('Failed to parse plan JSON:', e2);
+        }
+      }
+      
+      // Remove ALL JSON from the text (including any leading/trailing text around it)
+      planText = planText.replace(/\{[\s\S]*?\}/g, '').trim();
+    }
+    
+    // Clean up any markdown code blocks
+    planText = planText
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .replace(/^\s*\n/gm, '') // Remove empty lines at start
+      .trim();
         max_tokens: 2000,
         messages: [{ role: 'user', content: planPrompt }]
       })
